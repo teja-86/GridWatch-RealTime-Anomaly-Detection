@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: gridwatch
+      POSTGRES_USER: gridwatch
+      POSTGRES_PASSWORD: gridwatch
+    ports:
+      - "5433:5432"
+    volumes:
+      - gridwatch_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gridwatch -d gridwatch"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build: ./backend
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgres://gridwatch:gridwatch@postgres:5432/gridwatch
+      SEED_ON_STARTUP: "true"
+      DEFAULT_ACTOR_ID: "11111111-1111-1111-1111-111111111111" # seeded supervisor convenience
+      LOG_LEVEL: info
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "4000:4000"
+
+  frontend:
+    build: ./frontend
+    environment:
+      VITE_API_BASE_URL: http://backend:4000
+      VITE_WS_BASE_URL: ws://backend:4000
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+volumes:
+  gridwatch_pg_data:
+
